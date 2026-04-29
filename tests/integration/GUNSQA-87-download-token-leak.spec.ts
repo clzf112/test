@@ -17,7 +17,7 @@ test('GUNSQA-87 @GUNSQA-87 download flow should not expose token in the URL', as
   await login(page);
   await gotoFilePage(page);
 
-  await page.locator(selector('FILE_DOWNLOAD_SELECTOR', '[title="下载"], .icon-opt-xiazai')).first().click();
+  await page.locator(selector('FILE_DOWNLOAD_SELECTOR', '.table-content [title="下载"]:visible, .table-content .icon-opt-xiazai:visible')).first().click();
   await expect.poll(() => downloadUrls.length).toBeGreaterThan(0);
   expect(downloadUrls.some((url) => /[?&]token=/.test(url))).toBeFalsy();
 });
