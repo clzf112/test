@@ -9,7 +9,12 @@ test('GUNSQA-85 @GUNSQA-85 user certificate attachment preview should not crash 
   await login(page);
   await gotoUserDetailPage(page);
 
-  const userNameLinks = page.locator(selector('USER_NAME_LINK_SELECTOR', 'table a, .vxe-body--row a, a'));
+  const userNameLinks = page.locator(
+    selector(
+      'USER_NAME_LINK_SELECTOR',
+      '.table-content .ant-table-tbody a:visible, .table-content .vxe-body--row a:visible'
+    )
+  );
   const totalUsers = Math.min(await userNameLinks.count(), 10);
 
   let clickedAttachment = false;
@@ -18,10 +23,12 @@ test('GUNSQA-85 @GUNSQA-85 user certificate attachment preview should not crash 
 
   for (let index = 0; index < totalUsers; index += 1) {
     await userNameLinks.nth(index).click();
-    await expect(page.locator(selector('USER_DETAIL_MODAL_SELECTOR', 'text=用户信息')).first()).toBeVisible();
+
+    const detailDrawer = page.locator(selector('USER_DETAIL_MODAL_SELECTOR', 'text=用户信息')).first();
+    await expect(detailDrawer).toBeVisible();
     await page.getByText('用户证书', { exact: false }).first().click();
 
-    const attachmentLinks = page.locator(selector('CERT_ATTACHMENT_SELECTOR', '.filename a, a'));
+    const attachmentLinks = page.locator(selector('CERT_ATTACHMENT_SELECTOR', '.filename a:visible'));
     if (await attachmentLinks.count()) {
       const popupPromise = page.waitForEvent('popup', { timeout: 3000 }).catch(() => null);
       const beforeUrl = page.url();
@@ -38,7 +45,9 @@ test('GUNSQA-85 @GUNSQA-85 user certificate attachment preview should not crash 
       break;
     }
 
-    const closeButton = page.locator(selector('USER_DETAIL_CLOSE_SELECTOR', '.ant-drawer-close, .ant-modal-close, [aria-label="Close"]')).first();
+    const closeButton = page.locator(
+      selector('USER_DETAIL_CLOSE_SELECTOR', '.ant-drawer-close:visible, .ant-modal-close:visible, [aria-label="Close"]:visible')
+    ).first();
     if (await closeButton.count()) {
       await closeButton.click();
     } else {
