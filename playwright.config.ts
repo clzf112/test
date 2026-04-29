@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 
-const baseURL = process.env.APP_BASE_URL || 'http://127.0.0.1:3000';
+const baseURL = process.env.APP_BASE_URL || 'http://101.200.163.141';
 const junitOutput = process.env.PLAYWRIGHT_JUNIT_OUTPUT || '.artifacts/playwright/junit.xml';
 const htmlOutput = process.env.PLAYWRIGHT_HTML_OUTPUT || '.artifacts/playwright/html-report';
 
