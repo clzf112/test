@@ -30,6 +30,16 @@ test('GUNSQA-85 @GUNSQA-85 user certificate attachment preview should not crash 
     stage = 'create certificate row';
     await page.getByRole('button', { name: '添加证书' }).click();
 
+    stage = 'select certificate type';
+    const certTypeSelect = page.locator('.vxe-table .vxe-select').first();
+    if (await certTypeSelect.count()) {
+      await certTypeSelect.click();
+      const certTypeOption = page.locator('.vxe-option--item:visible, .vxe-select-option--item:visible').first();
+      await expect(certTypeOption, `No certificate type option available during stage: ${stage}`).toBeVisible({ timeout: 5000 });
+      await certTypeOption.click();
+    }
+
+    stage = 'fill certificate fields';
     const certNoInput = page.locator('.vxe-table input[placeholder="请输入证书编号"]').first();
     if (await certNoInput.count()) {
       await certNoInput.fill(`AUTO-${Date.now()}`);
@@ -40,13 +50,34 @@ test('GUNSQA-85 @GUNSQA-85 user certificate attachment preview should not crash 
       await authorityInput.fill('GUNS QA');
     }
 
+    const dateInputs = page.locator('.vxe-table input[placeholder="请选择发证日期"], .vxe-table input[placeholder="请选择到期日期"]');
+    const dateCount = await dateInputs.count();
+    if (dateCount > 0) {
+      await dateInputs.nth(0).fill('2026-04-29 00:00:00');
+    }
+    if (dateCount > 1) {
+      await dateInputs.nth(1).fill('2027-04-29 00:00:00');
+    }
+
     stage = 'upload seeded attachment';
     const uploadInput = page.locator(selector('CERT_UPLOAD_INPUT_SELECTOR', '.vxe-table .ant-upload input[type="file"]')).first();
     await uploadInput.setInputFiles(fixture('tests/fixtures/certificate-sample.pdf'));
     await expect(page.locator('.vxe-table .filename a:visible').first(), `Attachment was not visible after upload during stage: ${stage}`).toBeVisible({ timeout: 15000 });
 
     stage = 'save edited user';
+    const saveResponsePromise = page
+      .waitForResponse((response) => response.url().includes('/sysUser/edit') && response.request().method() === 'POST', { timeout: 15000 })
+      .catch(() => null);
     await page.locator('.ant-modal-footer .ant-btn-primary').click();
+    const saveResponse = await saveResponsePromise;
+    if (saveResponse) {
+      const savePayload = await saveResponse.json().catch(() => null);
+      expect(saveResponse.ok(), `Save request failed during stage: ${stage}`).toBeTruthy();
+      expect(
+        Boolean(savePayload?.success) || savePayload?.code === '00000',
+        `Unexpected save response during stage: ${stage}; payload=${JSON.stringify(savePayload)}`
+      ).toBeTruthy();
+    }
     await page.waitForTimeout(1500);
     await expect(page.locator('text=编辑用户').first(), `Edit modal did not close during stage: ${stage}`).toHaveCount(0);
   } else {
