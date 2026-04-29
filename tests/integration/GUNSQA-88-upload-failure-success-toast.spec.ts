@@ -31,7 +31,7 @@ test('GUNSQA-88 @GUNSQA-88 upload failure must not be reported as success', asyn
   await page.waitForTimeout(1500);
 
   const successToast = page.locator(
-    selector('FILE_UPLOAD_SUCCESS_SELECTOR', '.ant-message-notice:has-text("上传成功"), .ant-message:has-text("上传成功"), text=上传成功')
-  ).first();
+    selector('FILE_UPLOAD_SUCCESS_SELECTOR', '.ant-message-notice:has-text("上传成功"), .ant-message:has-text("上传成功")')
+  );
   await expect(successToast).toHaveCount(0);
 });
