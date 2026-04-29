@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { collectPageErrors } from '../helpers/assertions';
-import { fixture, selector } from '../helpers/env';
+import { selector } from '../helpers/env';
 import { login } from '../helpers/auth';
 import { gotoUserDetailPage } from '../helpers/navigation';
 
@@ -14,103 +14,56 @@ test('GUNSQA-85 @GUNSQA-85 user certificate attachment preview should not crash 
   const userNameLinks = page.locator(
     selector('USER_NAME_LINK_SELECTOR', '.table-content .ant-table-tbody a:visible, .table-content .vxe-body--row a:visible')
   );
-  const editIcons = page.locator(selector('USER_EDIT_SELECTOR', '.table-content [title="编辑"]:visible'));
+  const totalUsers = Math.min(await userNameLinks.count(), 12);
 
-  stage = 'locate user row';
-  await expect(userNameLinks.first()).toBeVisible();
-  await expect(editIcons.first()).toBeVisible();
+  let foundAttachment = false;
+  let popupOpened = false;
+  let sameTabPreview = false;
 
-  stage = 'open edit modal';
-  await editIcons.first().click();
-  await expect(page.locator('text=编辑用户').first()).toBeVisible();
-  await expect(page.locator('.card-title:has-text("证书信息")').first()).toBeVisible();
+  for (let index = 0; index < totalUsers; index += 1) {
+    stage = `open detail drawer for row ${index + 1}`;
+    await expect(userNameLinks.nth(index), `User link missing during stage: ${stage}`).toBeVisible();
+    await userNameLinks.nth(index).click();
 
-  const existingAttachment = page.locator('.vxe-table .filename a:visible').first();
-  if ((await existingAttachment.count()) === 0) {
-    stage = 'create certificate row';
-    await page.getByRole('button', { name: '添加证书' }).click();
+    const detailDrawer = page.locator(selector('USER_DETAIL_MODAL_SELECTOR', 'text=用户信息')).first();
+    await expect(detailDrawer, `Detail drawer was not visible during stage: ${stage}`).toBeVisible();
 
-    stage = 'select certificate type';
-    const certTypeSelect = page.locator('.vxe-table .vxe-select').first();
-    if (await certTypeSelect.count()) {
-      await certTypeSelect.click();
-      const certTypeOption = page.locator('.vxe-option--item:visible, .vxe-select-option--item:visible').first();
-      await expect(certTypeOption, `No certificate type option available during stage: ${stage}`).toBeVisible({ timeout: 5000 });
-      await certTypeOption.click();
+    stage = `switch certificate tab for row ${index + 1}`;
+    await page.getByText('用户证书', { exact: false }).first().click();
+
+    stage = `search attachment for row ${index + 1}`;
+    const attachmentLinks = page.locator(selector('CERT_ATTACHMENT_SELECTOR', '.filename a:visible'));
+    if (await attachmentLinks.count()) {
+      foundAttachment = true;
+      stage = `click attachment preview for row ${index + 1}`;
+      const popupPromise = page.waitForEvent('popup', { timeout: 3000 }).catch(() => null);
+      const beforeUrl = page.url();
+      await attachmentLinks.first().click();
+      const popup = await popupPromise;
+      await page.waitForTimeout(800);
+
+      popupOpened = popup !== null;
+      sameTabPreview = page.url() !== beforeUrl;
+      if (popup) {
+        await popup.waitForLoadState('domcontentloaded').catch(() => null);
+      }
+      break;
     }
 
-    stage = 'fill certificate fields';
-    const certNoInput = page.locator('.vxe-table input[placeholder="请输入证书编号"]').first();
-    if (await certNoInput.count()) {
-      await certNoInput.fill(`AUTO-${Date.now()}`);
+    stage = `close detail drawer for row ${index + 1}`;
+    const closeButton = page.locator(
+      selector('USER_DETAIL_CLOSE_SELECTOR', '.ant-drawer-close:visible, .ant-modal-close:visible, [aria-label="Close"]:visible')
+    ).first();
+    if (await closeButton.count()) {
+      await closeButton.click();
+    } else {
+      await page.keyboard.press('Escape');
     }
-
-    const authorityInput = page.locator('.vxe-table input[placeholder="请输入发证机构名称"]').first();
-    if (await authorityInput.count()) {
-      await authorityInput.fill('GUNS QA');
-    }
-
-    const dateInputs = page.locator('.vxe-table input[placeholder="请选择发证日期"], .vxe-table input[placeholder="请选择到期日期"]');
-    const dateCount = await dateInputs.count();
-    if (dateCount > 0) {
-      await dateInputs.nth(0).fill('2026-04-29 00:00:00');
-    }
-    if (dateCount > 1) {
-      await dateInputs.nth(1).fill('2027-04-29 00:00:00');
-    }
-
-    stage = 'upload seeded attachment';
-    const uploadInput = page.locator(selector('CERT_UPLOAD_INPUT_SELECTOR', '.vxe-table .ant-upload input[type="file"]')).first();
-    await uploadInput.setInputFiles(fixture('tests/fixtures/certificate-sample.pdf'));
-    await expect(page.locator('.vxe-table .filename a:visible').first(), `Attachment was not visible after upload during stage: ${stage}`).toBeVisible({ timeout: 15000 });
-
-    stage = 'save edited user';
-    const saveResponsePromise = page
-      .waitForResponse((response) => response.url().includes('/sysUser/edit') && response.request().method() === 'POST', { timeout: 15000 })
-      .catch(() => null);
-    await page.locator('.ant-modal-footer .ant-btn-primary').click();
-    const saveResponse = await saveResponsePromise;
-    if (saveResponse) {
-      const savePayload = await saveResponse.json().catch(() => null);
-      expect(saveResponse.ok(), `Save request failed during stage: ${stage}`).toBeTruthy();
-      expect(
-        Boolean(savePayload?.success) || savePayload?.code === '00000',
-        `Unexpected save response during stage: ${stage}; payload=${JSON.stringify(savePayload)}`
-      ).toBeTruthy();
-    }
-    await page.waitForTimeout(1500);
-    await expect(page.locator('text=编辑用户').first(), `Edit modal did not close during stage: ${stage}`).toHaveCount(0);
-  } else {
-    stage = 'close edit modal with existing attachment';
-    await page.locator('.ant-modal-footer .ant-btn-default').click();
-    await expect(page.locator('text=编辑用户').first(), `Edit modal did not close during stage: ${stage}`).toHaveCount(0);
+    await expect(detailDrawer).toHaveCount(0);
+    await page.waitForTimeout(300);
   }
 
-  stage = 'open detail drawer';
-  await expect(userNameLinks.first()).toBeVisible();
-  await userNameLinks.first().click();
-
-  const detailDrawer = page.locator(selector('USER_DETAIL_MODAL_SELECTOR', 'text=用户信息')).first();
-  await expect(detailDrawer, `Detail drawer was not visible during stage: ${stage}`).toBeVisible();
-  await page.getByText('用户证书', { exact: false }).first().click();
-
-  stage = 'locate attachment in detail drawer';
-  const attachmentLinks = page.locator(selector('CERT_ATTACHMENT_SELECTOR', '.filename a:visible'));
-  await expect(attachmentLinks.first(), `No visible attachment link found during stage: ${stage}`).toBeVisible();
-
-  stage = 'click attachment preview';
-  const popupPromise = page.waitForEvent('popup', { timeout: 3000 }).catch(() => null);
-  const beforeUrl = page.url();
-  await attachmentLinks.first().click();
-  const popup = await popupPromise;
-  await page.waitForTimeout(800);
-
-  const popupOpened = popup !== null;
-  const sameTabPreview = page.url() !== beforeUrl;
-  if (popup) {
-    await popup.waitForLoadState('domcontentloaded').catch(() => null);
-  }
-
+  expect(foundAttachment, 'No existing user with a certificate attachment was found in the scanned rows.').toBeTruthy();
   expect(errors.some((item) => item.includes('router is not defined')), `router error detected during stage: ${stage}; errors=${errors.join(' | ')}`).toBeFalsy();
   expect(popupOpened || sameTabPreview, `Preview did not open during stage: ${stage}`).toBeTruthy();
 });
