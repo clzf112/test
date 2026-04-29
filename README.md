@@ -9,6 +9,18 @@ This repository implements the four Jira-driven integration tests for `GUNSQA-85
 - `GUNSQA-87`: download URLs must not expose `token=` query parameters
 - `GUNSQA-88`: upload failure responses must not be shown as successful uploads
 
+## Live target
+
+The project now defaults to the deployed GUNS instance at `http://101.200.163.141`.
+
+Current verified login path:
+
+- API: `POST /api/loginApi`
+- Username: `admin`
+- Password: supplied through `APP_PASSWORD`
+- Auth header after login: `Authorization: <token>`
+- Frontend token storage key: `access_token`
+
 ## Jira and Xray flow
 
 1. Jira `Test` issues remain the source of truth for test design.
@@ -32,25 +44,34 @@ Install dependencies and run one mapped test by selector:
 ```bash
 npm install
 npx playwright install chromium
+APP_BASE_URL=http://101.200.163.141 APP_USERNAME=admin APP_PASSWORD='your-password' python scripts/resolve_test_context.py --mapping-path config/xray-test-executions.json --github-ref-name GUNSQA-85-local
+APP_BASE_URL=http://101.200.163.141 APP_USERNAME=admin APP_PASSWORD='your-password' python scripts/run_frontend_it.py
+```
+
+On Windows PowerShell:
+
+```powershell
+$env:APP_BASE_URL='http://101.200.163.141'
+$env:APP_USERNAME='admin'
+$env:APP_PASSWORD='your-password'
 python scripts/resolve_test_context.py --mapping-path config/xray-test-executions.json --github-ref-name GUNSQA-85-local
 python scripts/run_frontend_it.py
 ```
 
 ## Environment variables
 
-The tests are written to be environment-driven because the target GUNS deployment URL, credentials, and some selectors vary by environment.
+Defaults already assume the deployed server URL. In practice the only required variable is:
 
-Required in practice:
+- `APP_PASSWORD`
+
+Common overrides:
 
 - `APP_BASE_URL`
 - `APP_USERNAME`
-- `APP_PASSWORD`
-
-Useful overrides:
-
-- `LOGIN_PATH`
+- `LOGIN_API_PATH`
 - `FILE_PAGE_PATH`
-- `USER_PAGE_PATH`
+- `USER_IMPORT_PAGE_PATH`
+- `USER_DETAIL_PAGE_PATH`
 - `FILE_UPLOAD_PAGE_PATH`
 - selector overrides documented in `tests/helpers/env.ts`
 
