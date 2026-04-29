@@ -100,8 +100,8 @@ jobs:
         if: steps.resolve_test_context.outcome == 'success'
         continue-on-error: true
         env:
-          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
-          APP_USERNAME: ${{ secrets.APP_USERNAME }}
+          APP_BASE_URL: http://101.200.163.141
+          APP_USERNAME: admin
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
         run: python scripts/run_frontend_it.py
 
